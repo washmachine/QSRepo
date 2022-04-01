@@ -79,8 +79,50 @@ public class MessageBoardTests {
         dispatcher.tell(new Stop());
 
         // TODO: run system until workers and dispatcher are stopped
+
+        while (system.getActors().size() >= 0)
+            system.runFor(1);
     }
 
     // TODO: Implement test cases
-}
 
+    @Test
+    public void testDispatcher() throws UnknownClientException, UnknownMessageException {
+
+        SimulatedActorSystem system = new SimulatedActorSystem();
+        Dispatcher dispatcher = new Dispatcher(system, 2);
+        system.spawn(dispatcher);
+        TestClient client = new TestClient();
+        system.spawn(client);
+
+        // send request and run system until a response is received
+        // communication id is chosen by clients
+        dispatcher.tell(new InitCommunication(client, 10));
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        Message initAckMessage = client.receivedMessages.remove();
+        Assert.assertEquals(InitAck.class, initAckMessage.getClass());
+        InitAck initAck = (InitAck) initAckMessage;
+        Assert.assertEquals(Long.valueOf(10), initAck.communicationId);
+
+        SimulatedActor worker = initAck.worker;
+
+        // end the communication
+        worker.tell(new Stop());
+        //while (client.receivedMessages.size() == 0)
+        //    system.runFor(1);
+
+        //Message finAckMessage = client.receivedMessages.remove();
+        //Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
+        //FinishAck finAck = (FinishAck) finAckMessage;
+
+        //Assert.assertEquals(Long.valueOf(10), finAck.communicationId);
+        //dispatcher.tell(new Stop());
+
+        // TODO: run system until workers and dispatcher are stopped
+
+        while (system.getActors().size() >= 0)
+            system.runFor(1);
+    }
+}
