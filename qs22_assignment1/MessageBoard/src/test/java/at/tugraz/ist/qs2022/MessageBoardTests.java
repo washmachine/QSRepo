@@ -9,9 +9,23 @@ import at.tugraz.ist.qs2022.messageboard.clientmessages.*;
 import at.tugraz.ist.qs2022.messageboard.clientmessages.Reaction.Emoji;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
+<<<<<<< HEAD
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.*;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
 
+=======
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddLike;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReaction;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReport;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.MessageStoreMessage;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.RetrieveFromStore;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.SearchInStore;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
+import at.tugraz.ist.qs2022.messageboard.Worker;
+>>>>>>> d080fbc576a73d2660ca707655b8b8b2c46c51da
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -80,7 +94,13 @@ public class MessageBoardTests {
         FinishAck finAck = (FinishAck) finAckMessage;
 
         Assert.assertEquals(Long.valueOf(10), finAck.communicationId);
+        dispatcher.tell(new Like("name", 10, 10));
+        dispatcher.tick();
         dispatcher.tell(new Stop());
+        
+        dispatcher.tell(new InitCommunication(client, 10));
+        
+        
         //system.runFor(2);
 
         // TODO: run system until workers and dispatcher are stopped
@@ -143,7 +163,7 @@ public class MessageBoardTests {
         system.spawn(client);
         
         UserMessage usermessage = new UserMessage("author", "message");
-        Assert.assertEquals("author", usermessage.getAuthor());
+        Assert.assertEquals("author", usermessage.getAuthor()); 
         Assert.assertEquals("message", usermessage.getMessage());
         usermessage.setPoints(10);
         Assert.assertEquals(10, usermessage.getPoints());
@@ -158,6 +178,16 @@ public class MessageBoardTests {
         Message initAckMessage = client.receivedMessages.remove();
         InitAck initAck = (InitAck) initAckMessage;
         SimulatedActor worker = initAck.worker;
+
+
+        SearchInStore sis = new SearchInStore("author", 10);
+        Assert.assertEquals(10, sis.communicationId);
+        Assert.assertEquals("author", sis.searchText);
+
+        RetrieveFromStore rfs = new RetrieveFromStore("author", 10);
+        Assert.assertEquals(10, rfs.communicationId);
+        Assert.assertEquals("author", rfs.author);
+
 
         worker.setId(5);
         Assert.assertEquals(5, worker.getId());
@@ -175,6 +205,37 @@ public class MessageBoardTests {
 
         for(int i = 0; i < 1000; i++)
             worker.tick();
+
+        MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
+        Assert.assertEquals(1, msgStoreMsg.getDuration());
+
+        UpdateMessageStore updMsgStore = new UpdateMessageStore(usermessage, 10);
+        Assert.assertEquals(usermessage, updMsgStore.message);
+        Assert.assertEquals(10, updMsgStore.communicationId);
+
+        AddReport addReport = new AddReport("client", 10, "client");
+        Assert.assertEquals("client", addReport.clientName);
+        Assert.assertEquals(10, addReport.communicationId);
+        Assert.assertEquals("client", addReport.reportedClientName);
+
+        DeleteLikeOrDislike deleteLikeOrDislike = new DeleteLikeOrDislike("client", 10, 10, Type.DISLIKE);
+        Assert.assertEquals("client", deleteLikeOrDislike.clientName);
+        Assert.assertEquals(10, deleteLikeOrDislike.messageId);
+        Assert.assertEquals(10, deleteLikeOrDislike.communicationId);
+        Assert.assertEquals(Type.DISLIKE, deleteLikeOrDislike.typeToDelete);
+
+        DeleteLikeOrDislike deleteLikeOrDislike1 = new DeleteLikeOrDislike("client", 10, 10, Type.LIKE);
+        Assert.assertEquals("client", deleteLikeOrDislike1.clientName);
+        Assert.assertEquals(10, deleteLikeOrDislike1.messageId);
+        Assert.assertEquals(10, deleteLikeOrDislike1.communicationId);
+        Assert.assertEquals(Type.LIKE, deleteLikeOrDislike1.typeToDelete);
+
+        AddReaction reaction = new AddReaction("client", 10, 10, Reaction.Emoji.COOL);
+        Assert.assertEquals("client", reaction.clientName);
+        Assert.assertEquals(10, reaction.messageId);
+        Assert.assertEquals(10, reaction.communicationId);
+        Assert.assertEquals(Reaction.Emoji.COOL, reaction.reaction);
+
         
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
@@ -218,49 +279,158 @@ public class MessageBoardTests {
 
         UnknownMessageException exceptionMessage = new UnknownMessageException("message");
         Assert.assertEquals("message", exceptionMessage.getMessage());
-
     }
 
 
-    //@Test
-    //public void testDispatcher() throws UnknownClientException, UnknownMessageException {
+    @Test
+    public void testWorker() throws UnknownClientException, UnknownMessageException {
+
+        SimulatedActorSystem system = new SimulatedActorSystem();
+        Dispatcher dispatcher = new Dispatcher(system, 3);
+        system.spawn(dispatcher);
+        TestClient client = new TestClient();
+        system.spawn(client);
+
+        // send request and run system until a response is received
+        // communication id is chosen by clients
+        dispatcher.tell(new InitCommunication(client, 10));
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        Message initAckMessage = client.receivedMessages.remove();
+        Assert.assertEquals(InitAck.class, initAckMessage.getClass());
+        InitAck initAck = (InitAck) initAckMessage;
+        Assert.assertEquals(Long.valueOf(10), initAck.communicationId);
+
+        SimulatedActor worker = initAck.worker;
+
+        UserMessage usermessage = new UserMessage("author", "message");
+        Assert.assertEquals("author", usermessage.getAuthor());
+        Assert.assertEquals("message", usermessage.getMessage());
+        usermessage.setPoints(10);
+        Assert.assertEquals(10, usermessage.getPoints());
+        usermessage.setMessageId(12);
+
+        Publish pubm = new Publish(usermessage, 10);
+        client.tell(pubm);
+        
+        System.out.print(client.receivedMessages);
+        worker.tell(new UpdateMessageStore(usermessage, 10));
+        system.tick();
+
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        System.out.print(client.receivedMessages);
+        
+
+        worker.tell(new UpdateMessageStore(usermessage, 10));
+        system.tick();
+        worker.tell(new Like("client", 10, usermessage.getMessageId()));
+        system.tick();
+        worker.tell(new Dislike("client", 10, usermessage.getMessageId()));
+        system.tick();
+        worker.tell(new RetrieveFromStore("client", 10));
+        system.tick();
+        worker.tell(new RetrieveMessages("client", 10));
+        system.tick();
+        worker.tell(new Report("client", 10, "client"));
+        system.tick();
 //
-    //    SimulatedActorSystem system = new SimulatedActorSystem();
-    //    Dispatcher dispatcher = new Dispatcher(system, 2);
-    //    system.spawn(dispatcher);
-    //    TestClient client = new TestClient();
-    //    system.spawn(client);
-//
-    //    // send request and run system until a response is received
-    //    // communication id is chosen by clients
-    //    dispatcher.tell(new InitCommunication(client, 10));
-    //    while (client.receivedMessages.size() == 0)
-    //        system.runFor(1);
-//
-    //    Message initAckMessage = client.receivedMessages.remove();
-    //    Assert.assertEquals(InitAck.class, initAckMessage.getClass());
-    //    InitAck initAck = (InitAck) initAckMessage;
-    //    Assert.assertEquals(Long.valueOf(10), initAck.communicationId);
-//
-    //    SimulatedActor worker = initAck.worker;
-//
-    //    // end the communication
-    //    worker.tell(new Stop());
-    //    //while (client.receivedMessages.size() == 0)
-    //    //    system.runFor(1);
-//
-    //    //Message finAckMessage = client.receivedMessages.remove();
-    //    //Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
-    //    //FinishAck finAck = (FinishAck) finAckMessage;
-//
-    //    //Assert.assertEquals(Long.valueOf(10), finAck.communicationId);
-    //    //dispatcher.tell(new Stop());
-//
-    //    // TODO: run system until workers and dispatcher are stopped
-//
-    //    while (system.getActors().size() >= 0)
-    //        system.runFor(1);
-    //}
+        worker.tell(new SearchMessages("message", 10));
+        system.tick();
+        worker.tell(new SearchMessages("hi", 10));
+        //Assert.assertThrows(UnknownClientException.class, ()->{
+        //    worker.tell(new SearchMessages("message", 11));
+        //}); 
+        system.tick();
+        //Assert.assertThrows(UnknownClientException.class, ()->{
+        //    worker.tell(new SearchMessages("hi", 11));
+        //}); 
+        
+        
+        worker.tell(new Like("client", 10, usermessage.getMessageId()));
+
+        System.out.print(usermessage.getPoints());
+        
+
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+            
+        System.out.print(client.receivedMessages);
+
+        //System.out.print(usermessage.getPoints());
+        
+        
+        // end the communication
+        //worker.receive(null);
+        //worker.tick();
+        worker.tell(new FinishCommunication(10));
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        //Message finAckMessage = client.receivedMessages.remove();
+        //Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
+        //FinishAck finAck = (FinishAck) finAckMessage;
+
+        //Assert.assertEquals(Long.valueOf(10), finAck.communicationId);
+        dispatcher.tell(new Stop());
+
+        // TODO: run system until workers and dispatcher are stopped
+
+        while (system.getActors().size() > 1)
+            system.runFor(1);
+    }
+    
+
+
+    @Test
+    public void testWorkerNULL() throws UnknownClientException, UnknownMessageException {
+        // testing only the acks
+        SimulatedActorSystem system = new SimulatedActorSystem();
+        Dispatcher dispatcher = new Dispatcher(system, 2);
+        system.spawn(dispatcher);
+        TestClient client = new TestClient();
+        system.spawn(client);
+
+        // send request and run system until a response is received
+        // communication id is chosen by clients
+        dispatcher.tell(new InitCommunication(client, 10));
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        Message initAckMessage = client.receivedMessages.remove();
+        Assert.assertEquals(InitAck.class, initAckMessage.getClass());
+        InitAck initAck = (InitAck) initAckMessage;
+        Assert.assertEquals(Long.valueOf(10), initAck.communicationId);
+
+        SimulatedActor worker = initAck.worker;
+        Assert.assertThrows(UnknownMessageException.class, ()->{
+            worker.receive(null);
+        });
+        system.tick();
+
+        // end the communication
+        worker.tell(new FinishCommunication(10));
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        Message finAckMessage = client.receivedMessages.remove();
+        Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
+        FinishAck finAck = (FinishAck) finAckMessage;
+
+        Assert.assertEquals(Long.valueOf(10), finAck.communicationId);
+        dispatcher.tick();
+        dispatcher.tell(new Stop());
+        
+        //system.runFor(2);
+
+        // TODO: run system until workers and dispatcher are stopped
+
+        while (system.getActors().size() > 1)
+            system.runFor(1);
+
+    }
 
     @Test
     public void testClientMessages() throws UnknownClientException, UnknownMessageException {
