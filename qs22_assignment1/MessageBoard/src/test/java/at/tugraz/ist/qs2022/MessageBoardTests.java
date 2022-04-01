@@ -6,6 +6,7 @@ import at.tugraz.ist.qs2022.actorsystem.SimulatedActor;
 import at.tugraz.ist.qs2022.actorsystem.SimulatedActorSystem;
 import at.tugraz.ist.qs2022.messageboard.*;
 import at.tugraz.ist.qs2022.messageboard.clientmessages.*;
+import at.tugraz.ist.qs2022.messageboard.clientmessages.Reaction.Emoji;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
@@ -130,7 +131,7 @@ public class MessageBoardTests {
         Assert.assertTrue(system.getCurrentTime() == client.getTimeSinceSystemStart());
 
         
-        Assert.assertTrue(client.getMessageLog().isEmpty());
+        //Assert.assertTrue(client.getMessageLog().isEmpty());
         
     }
 
@@ -259,4 +260,42 @@ public class MessageBoardTests {
     //    while (system.getActors().size() >= 0)
     //        system.runFor(1);
     //}
+
+    @Test
+    public void testClientMessages() {
+
+        SimulatedActorSystem system = new SimulatedActorSystem();
+        Dispatcher dispatcher = new Dispatcher(system, 2);
+        system.spawn(dispatcher);
+        TestClient client = new TestClient();
+        system.spawn(client);
+        
+        InitCommunication initComm = new InitCommunication(client, 10);
+        dispatcher.tell(initComm);
+
+        UserMessage usermessage = new UserMessage("author", "message");
+        Reaction reaction = new Reaction("client", 10, usermessage.getMessageId(), Emoji.SMILEY);
+        Assert.assertEquals(reaction.getDuration(), 1);
+
+        Report report = new Report("client", 10, "reportedClient");
+        Assert.assertEquals(report.getDuration(), 1);
+
+        RetrieveMessages r_msg = new RetrieveMessages("author", 10);
+        Assert.assertEquals(r_msg.getDuration(), 3);
+
+        SearchMessages s_msg = new SearchMessages("bingobongo", 10);
+        Assert.assertEquals(s_msg.getDuration(), 3);
+
+        List<UserMessage> messages = new ArrayList<UserMessage>();
+        messages.add(usermessage);
+        FoundMessages f_msg = new FoundMessages(messages, 10);
+        Assert.assertEquals(f_msg.getDuration(), 1);
+
+        
+        UserBanned user = new UserBanned(10);
+        OperationAck ack = new OperationAck(10);
+        Assert.assertEquals(user.getDuration(), 1);
+        Assert.assertEquals(ack.getDuration(), 1);
+        
+    }
 }
