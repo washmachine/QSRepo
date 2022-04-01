@@ -10,9 +10,14 @@ import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddLike;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReaction;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReport;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.MessageStoreMessage;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.RetrieveFromStore;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.SearchInStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
 import at.tugraz.ist.qs2022.messageboard.Worker;
 import org.junit.Assert;
 import org.junit.Test;
@@ -145,7 +150,7 @@ public class MessageBoardTests {
         system.spawn(client);
         
         UserMessage usermessage = new UserMessage("author", "message");
-        Assert.assertEquals("author", usermessage.getAuthor());
+        Assert.assertEquals("author", usermessage.getAuthor()); 
         Assert.assertEquals("message", usermessage.getMessage());
         usermessage.setPoints(10);
         Assert.assertEquals(10, usermessage.getPoints());
@@ -160,6 +165,16 @@ public class MessageBoardTests {
         Message initAckMessage = client.receivedMessages.remove();
         InitAck initAck = (InitAck) initAckMessage;
         SimulatedActor worker = initAck.worker;
+
+
+        SearchInStore sis = new SearchInStore("author", 10);
+        Assert.assertEquals(10, sis.communicationId);
+        Assert.assertEquals("author", sis.searchText);
+
+        RetrieveFromStore rfs = new RetrieveFromStore("author", 10);
+        Assert.assertEquals(10, rfs.communicationId);
+        Assert.assertEquals("author", rfs.author);
+
 
         worker.setId(5);
         Assert.assertEquals(5, worker.getId());
@@ -177,6 +192,37 @@ public class MessageBoardTests {
 
         for(int i = 0; i < 1000; i++)
             worker.tick();
+
+        MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
+        Assert.assertEquals(1, msgStoreMsg.getDuration());
+
+        UpdateMessageStore updMsgStore = new UpdateMessageStore(usermessage, 10);
+        Assert.assertEquals(usermessage, updMsgStore.message);
+        Assert.assertEquals(10, updMsgStore.communicationId);
+
+        AddReport addReport = new AddReport("client", 10, "client");
+        Assert.assertEquals("client", addReport.clientName);
+        Assert.assertEquals(10, addReport.communicationId);
+        Assert.assertEquals("client", addReport.reportedClientName);
+
+        DeleteLikeOrDislike deleteLikeOrDislike = new DeleteLikeOrDislike("client", 10, 10, Type.DISLIKE);
+        Assert.assertEquals("client", deleteLikeOrDislike.clientName);
+        Assert.assertEquals(10, deleteLikeOrDislike.messageId);
+        Assert.assertEquals(10, deleteLikeOrDislike.communicationId);
+        Assert.assertEquals(Type.DISLIKE, deleteLikeOrDislike.typeToDelete);
+
+        DeleteLikeOrDislike deleteLikeOrDislike1 = new DeleteLikeOrDislike("client", 10, 10, Type.LIKE);
+        Assert.assertEquals("client", deleteLikeOrDislike1.clientName);
+        Assert.assertEquals(10, deleteLikeOrDislike1.messageId);
+        Assert.assertEquals(10, deleteLikeOrDislike1.communicationId);
+        Assert.assertEquals(Type.LIKE, deleteLikeOrDislike1.typeToDelete);
+
+        AddReaction reaction = new AddReaction("client", 10, 10, Reaction.Emoji.COOL);
+        Assert.assertEquals("client", reaction.clientName);
+        Assert.assertEquals(10, reaction.messageId);
+        Assert.assertEquals(10, reaction.communicationId);
+        Assert.assertEquals(Reaction.Emoji.COOL, reaction.reaction);
+
         
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
@@ -216,7 +262,6 @@ public class MessageBoardTests {
 
         UnknownMessageException exceptionMessage = new UnknownMessageException("message");
         Assert.assertEquals("message", exceptionMessage.getMessage());
-
     }
 
 
