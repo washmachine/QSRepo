@@ -9,12 +9,9 @@ import at.tugraz.ist.qs2022.messageboard.clientmessages.*;
 import at.tugraz.ist.qs2022.messageboard.clientmessages.Reaction.Emoji;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
-import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
-import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddLike;
-import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike;
-import at.tugraz.ist.qs2022.messageboard.messagestoremessages.MessageStoreMessage;
-import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
-import at.tugraz.ist.qs2022.messageboard.Worker;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.*;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -181,6 +178,10 @@ public class MessageBoardTests {
         
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
+        
+        DeleteLikeOrDislike deleteLikeOrDislike = new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE);
+        system.tick();
+        worker.tell(deleteLikeOrDislike);
 
         /*
         if (worker.getMessageLog().size() <= 3)
@@ -262,7 +263,7 @@ public class MessageBoardTests {
     //}
 
     @Test
-    public void testClientMessages() {
+    public void testClientMessages() throws UnknownClientException, UnknownMessageException {
 
         SimulatedActorSystem system = new SimulatedActorSystem();
         Dispatcher dispatcher = new Dispatcher(system, 2);
@@ -270,9 +271,19 @@ public class MessageBoardTests {
         TestClient client = new TestClient();
         system.spawn(client);
         
+        //MessageStore msg_store = new MessageStore();
+
         InitCommunication initComm = new InitCommunication(client, 10);
         dispatcher.tell(initComm);
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
 
+
+        Message initAckMessage = client.receivedMessages.remove();
+        InitAck initAck = (InitAck) initAckMessage;
+        SimulatedActor worker = initAck.worker;
+        
+       
         UserMessage usermessage = new UserMessage("author", "message");
         Reaction reaction = new Reaction("client", 10, usermessage.getMessageId(), Emoji.SMILEY);
         Assert.assertEquals(reaction.getDuration(), 1);
@@ -291,11 +302,41 @@ public class MessageBoardTests {
         FoundMessages f_msg = new FoundMessages(messages, 10);
         Assert.assertEquals(f_msg.getDuration(), 1);
 
+        system.tick();
+        worker.tell(reaction);
+        system.tick();
+        worker.tell(report);
+        system.tick();
+        worker.tell(r_msg);
+        system.tick();
+        worker.tell(s_msg);
+        system.tick();
+        worker.tell(f_msg);
+        system.tick();
+     
+        
         
         UserBanned user = new UserBanned(10);
         OperationAck ack = new OperationAck(10);
         Assert.assertEquals(user.getDuration(), 1);
         Assert.assertEquals(ack.getDuration(), 1);
+        
+       
+
+        
+        
+        //AddReport addreport = new AddReport("client", 10, "reportedClient");
+        
+        //WorkerHelper workerhelper = new WorkerHelper(msg_store, client, addreport, system);
+        
+        //worker.receive(addreport);
+      
+        
+        worker.tell(new FinishCommunication(10));
+        worker.tick();
+        worker.tell(new FinishCommunication(990000000));
+        system.tick();
+
         
     }
 }
