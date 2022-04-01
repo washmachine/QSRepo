@@ -175,7 +175,45 @@ public class MessageBoardTests {
         Message initAckMessage = client.receivedMessages.remove();
         InitAck initAck = (InitAck) initAckMessage;
         SimulatedActor worker = initAck.worker;
+        worker.setId(5);
+        Assert.assertEquals(5, worker.getId());
 
+        Publish publish = new Publish(usermessage, 10);
+        Like like = new Like("client", 10, usermessage.getMessageId());
+        Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
+
+        worker.tell(publish); 
+        worker.tell(like);
+        worker.tell(dislike);
+
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        for(int i = 0; i < 1000; i++)
+            worker.tick();
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getLikes().size());
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getDislikes().size());
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getReactions().size());
+
+        
+        if (worker.getMessageLog().size() <= 3)
+            assert(false);
+        
+        //would be meaningful if I'd get messages to be processed
+        //Assert.assertEquals(11, usermessage.getPoints());
+
+        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+
+
+        ///////////////////////////
+        StopAck stopAck = new StopAck(worker);
+        Assert.assertEquals(2, stopAck.getDuration());
 
         SearchInStore sis = new SearchInStore("author", 10);
         Assert.assertEquals(10, sis.communicationId);
@@ -184,24 +222,6 @@ public class MessageBoardTests {
         RetrieveFromStore rfs = new RetrieveFromStore("author", 10);
         Assert.assertEquals(10, rfs.communicationId);
         Assert.assertEquals("author", rfs.author);
-
-
-        worker.setId(5);
-        Assert.assertEquals(5, worker.getId());
-
-        StopAck stopAck = new StopAck(worker);
-        Assert.assertEquals(2, stopAck.getDuration());
-        
-        Publish publish = new Publish(usermessage, 10);
-        Like like = new Like("client", 10, usermessage.getMessageId());
-        Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
-
-        worker.tell(publish);        
-        worker.tell(like);
-        worker.tell(dislike);
-
-        for(int i = 0; i < 1000; i++)
-            worker.tick();
 
         MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
         Assert.assertEquals(1, msgStoreMsg.getDuration());
@@ -233,9 +253,9 @@ public class MessageBoardTests {
         Assert.assertEquals(10, reaction.communicationId);
         Assert.assertEquals(Reaction.Emoji.COOL, reaction.reaction);
 
-        
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
+
         
 
         /*
@@ -247,15 +267,16 @@ public class MessageBoardTests {
         //Assert.assertEquals(11, usermessage.getPoints());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getLikes().size());
+        //Assert.assertEquals(0, usermessage.getLikes().size());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getDislikes().size());
+        //Assert.assertEquals(0, usermessage.getDislikes().size());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getReactions().size());
+        //Assert.assertEquals(0, usermessage.getReactions().size());
 
-        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+        //Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+
     }
 
     @Test
