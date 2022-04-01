@@ -10,6 +10,7 @@ import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.MessageStoreMessage;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
+import at.tugraz.ist.qs2022.messageboard.Worker;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -82,5 +83,45 @@ public class MessageBoardTests {
     }
 
     // TODO: Implement test cases
-}
+    @Test
+    public void testSimulatedActorSystem() throws UnknownClientException, UnknownMessageException {
+        List<SimulatedActor> actors = new ArrayList<>();
+        SimulatedActorSystem system = new SimulatedActorSystem();
+        TestClient client = new TestClient();
+        system.spawn(client);
+        actors.add(client);
+        //test getActors()
+        Assert.assertEquals(system.getActors(), actors);
+
+        //tests runFor() and getCurrentTime()
+        int no_ticks = 10;
+        system.runFor(no_ticks);
+        Assert.assertEquals(system.getCurrentTime(), no_ticks);
+
+        //test runUntil()
+        
+        int end_time = 500;
+        Assert.assertTrue(system.getCurrentTime() == 10);
+        system.runUntil(end_time);
+        Assert.assertTrue(end_time + 1 == system.getCurrentTime());
+
+        //tests stop()
+        system.stop(client);
+        actors.remove(client);
+        Assert.assertEquals(system.getActors(), actors);
+
+        //TESTs FOR SimulatedActor
+        for(int i = 1; i <= 10; i++){
+            system.spawn(client);
+            Assert.assertEquals(client.getId(), i);
+        }
+
+        system.spawn(client);
+        Assert.assertTrue(system.getCurrentTime() == client.getTimeSinceSystemStart());
+
+        
+        Assert.assertTrue(client.getMessageLog().isEmpty());
+        
+    }
+}   
 
