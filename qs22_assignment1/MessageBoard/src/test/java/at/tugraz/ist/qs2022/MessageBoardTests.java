@@ -9,11 +9,8 @@ import at.tugraz.ist.qs2022.messageboard.clientmessages.*;
 import at.tugraz.ist.qs2022.messageboard.clientmessages.Reaction.Emoji;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
-<<<<<<< HEAD
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.*;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
-
-=======
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddLike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReaction;
@@ -25,7 +22,7 @@ import at.tugraz.ist.qs2022.messageboard.messagestoremessages.SearchInStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
 import at.tugraz.ist.qs2022.messageboard.Worker;
->>>>>>> d080fbc576a73d2660ca707655b8b8b2c46c51da
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -240,9 +237,6 @@ public class MessageBoardTests {
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
         
-        DeleteLikeOrDislike deleteLikeOrDislike = new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE);
-        system.tick();
-        worker.tell(deleteLikeOrDislike);
 
         /*
         if (worker.getMessageLog().size() <= 3)
