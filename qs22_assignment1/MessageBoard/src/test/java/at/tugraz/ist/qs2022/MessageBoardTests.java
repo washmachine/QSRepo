@@ -9,6 +9,8 @@ import at.tugraz.ist.qs2022.messageboard.clientmessages.*;
 import at.tugraz.ist.qs2022.messageboard.clientmessages.Reaction.Emoji;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.Stop;
 import at.tugraz.ist.qs2022.messageboard.dispatchermessages.StopAck;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.*;
+import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddDislike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddLike;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.AddReaction;
@@ -19,7 +21,7 @@ import at.tugraz.ist.qs2022.messageboard.messagestoremessages.RetrieveFromStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.SearchInStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.UpdateMessageStore;
 import at.tugraz.ist.qs2022.messageboard.messagestoremessages.DeleteLikeOrDislike.Type;
-
+import at.tugraz.ist.qs2022.messageboard.Worker;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -172,7 +174,45 @@ public class MessageBoardTests {
         Message initAckMessage = client.receivedMessages.remove();
         InitAck initAck = (InitAck) initAckMessage;
         SimulatedActor worker = initAck.worker;
+        worker.setId(5);
+        Assert.assertEquals(5, worker.getId());
 
+        Publish publish = new Publish(usermessage, 10);
+        Like like = new Like("client", 10, usermessage.getMessageId());
+        Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
+
+        worker.tell(publish); 
+        worker.tell(like);
+        worker.tell(dislike);
+
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        for(int i = 0; i < 1000; i++)
+            worker.tick();
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getLikes().size());
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getDislikes().size());
+
+        //could be more meaningful?
+        Assert.assertEquals(0, usermessage.getReactions().size());
+
+        
+        if (worker.getMessageLog().size() <= 3)
+            assert(false);
+        
+        //would be meaningful if I'd get messages to be processed
+        //Assert.assertEquals(11, usermessage.getPoints());
+
+        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+
+
+        ///////////////////////////
+        StopAck stopAck = new StopAck(worker);
+        Assert.assertEquals(2, stopAck.getDuration());
 
         SearchInStore sis = new SearchInStore("author", 10);
         Assert.assertEquals(10, sis.communicationId);
@@ -181,24 +221,6 @@ public class MessageBoardTests {
         RetrieveFromStore rfs = new RetrieveFromStore("author", 10);
         Assert.assertEquals(10, rfs.communicationId);
         Assert.assertEquals("author", rfs.author);
-
-
-        worker.setId(5);
-        Assert.assertEquals(5, worker.getId());
-
-        StopAck stopAck = new StopAck(worker);
-        Assert.assertEquals(2, stopAck.getDuration());
-        
-        Publish publish = new Publish(usermessage, 10);
-        Like like = new Like("client", 10, usermessage.getMessageId());
-        Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
-
-        worker.tell(publish);        
-        worker.tell(like);
-        worker.tell(dislike);
-
-        for(int i = 0; i < 1000; i++)
-            worker.tick();
 
         MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
         Assert.assertEquals(1, msgStoreMsg.getDuration());
@@ -230,9 +252,10 @@ public class MessageBoardTests {
         Assert.assertEquals(10, reaction.communicationId);
         Assert.assertEquals(Reaction.Emoji.COOL, reaction.reaction);
 
-        
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
+
+        
 
         /*
         if (worker.getMessageLog().size() <= 3)
@@ -243,15 +266,16 @@ public class MessageBoardTests {
         //Assert.assertEquals(11, usermessage.getPoints());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getLikes().size());
+        //Assert.assertEquals(0, usermessage.getLikes().size());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getDislikes().size());
+        //Assert.assertEquals(0, usermessage.getDislikes().size());
 
         //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getReactions().size());
+        //Assert.assertEquals(0, usermessage.getReactions().size());
 
-        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+        //Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+
     }
 
     @Test
@@ -347,10 +371,23 @@ public class MessageBoardTests {
         
         system.tick();
 
-        //Assert.assertThrows(UnknownClientException.class, ()->{
-        //    worker.tell(new SearchMessages("hi", 11));
-        //});
-         
+        worker.tell(new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE));
+        system.tick();
+
+        //worker.tell(new InitCommunication(worker, 10));
+        //system.tick();
+
+       // Assert.assertThrows(UnknownClientException.class, ()->{
+           // worker.tell(new InitCommunication(worker, 10));
+           // system.tick();
+           // while (client.receivedMessages.size() == 0)
+               // system.runFor(1);
+            //worker.tell(new Stop());
+            //while (system.getActors().size() > 1)
+                //system.runFor(1);
+       // }); 
+        
+
         
         worker.tell(new Like("client", 10, usermessage.getMessageId()));
 
@@ -363,15 +400,23 @@ public class MessageBoardTests {
         System.out.print(client.receivedMessages);
 
         //System.out.print(usermessage.getPoints());
-        
-        
+
+
         // end the communication
         //worker.receive(null);
         //worker.tick();
         worker.tell(new FinishCommunication(10));
+        system.tick();
+       // worker.tell(new FinishCommunication(10));
+        system.tick();
+
         while (client.receivedMessages.size() == 0)
             system.runFor(1);
 
+
+
+        //worker.tell(new FinishCommunication(10));
+        //worker.tell(new Like("client", 10, usermessage.getMessageId()));
         //Message finAckMessage = client.receivedMessages.remove();
         //Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
         //FinishAck finAck = (FinishAck) finAckMessage;
@@ -382,7 +427,7 @@ public class MessageBoardTests {
         // TODO: run system until workers and dispatcher are stopped
 
         while (system.getActors().size() > 1)
-            system.runFor(1);
+           system.runFor(1);
     }
     
 
@@ -436,7 +481,7 @@ public class MessageBoardTests {
     }
 
     @Test
-    public void testClientMessages() {
+    public void testClientMessages() throws UnknownClientException, UnknownMessageException {
 
         SimulatedActorSystem system = new SimulatedActorSystem();
         Dispatcher dispatcher = new Dispatcher(system, 2);
@@ -444,9 +489,19 @@ public class MessageBoardTests {
         TestClient client = new TestClient();
         system.spawn(client);
         
+        //MessageStore msg_store = new MessageStore();
+
         InitCommunication initComm = new InitCommunication(client, 10);
         dispatcher.tell(initComm);
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
 
+
+        Message initAckMessage = client.receivedMessages.remove();
+        InitAck initAck = (InitAck) initAckMessage;
+        SimulatedActor worker = initAck.worker;
+        
+       
         UserMessage usermessage = new UserMessage("author", "message");
         Reaction reaction = new Reaction("client", 10, usermessage.getMessageId(), Emoji.SMILEY);
         Assert.assertEquals(reaction.getDuration(), 1);
@@ -465,11 +520,55 @@ public class MessageBoardTests {
         FoundMessages f_msg = new FoundMessages(messages, 10);
         Assert.assertEquals(f_msg.getDuration(), 1);
 
+        system.tick();
+        worker.tell(reaction);
+        system.tick();
+        worker.tell(report);
+        system.tick();
+        worker.tell(r_msg);
+        system.tick();
+        worker.tell(s_msg);
+        system.tick();
+        worker.tell(f_msg);
+        system.tick();
+     
+        
         
         UserBanned user = new UserBanned(10);
         OperationAck ack = new OperationAck(10);
         Assert.assertEquals(user.getDuration(), 1);
         Assert.assertEquals(ack.getDuration(), 1);
+        
+       
+
+        
+        
+        //AddReport addreport = new AddReport("client", 10, "reportedClient");
+        MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
+        WorkerHelper workerhelper = new WorkerHelper(worker, client, msgStoreMsg, system);
+
+        worker.tell(msgStoreMsg);
+        system.tick();
+        system.tick();
+        system.tick();
+        system.tick();
+        system.tick();
+
+        workerhelper.tick();
+        //WorkerHelper workerhelper1 = new WorkerHelper(worker, client, msgStoreMsg, system);
+        worker.tell(msgStoreMsg);
+        workerhelper.tick();
+
+
+        
+        //worker.receive(addreport);
+      
+        
+        worker.tell(new FinishCommunication(10));
+        worker.tick();
+        worker.tell(new FinishCommunication(990000000));
+        system.tick();
+
         
     }
 
