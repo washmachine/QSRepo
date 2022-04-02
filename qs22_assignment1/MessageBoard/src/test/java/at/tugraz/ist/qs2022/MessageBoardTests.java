@@ -354,6 +354,7 @@ public class MessageBoardTests {
         worker.tell(new UpdateMessageStore(usermessage, 10));
         system.tick();
         worker.tell(new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE));
+        system.tick();
 //          
         system.tick();
         worker.tell(new SearchMessages("message", 10));
@@ -363,35 +364,28 @@ public class MessageBoardTests {
         //    worker.tell(new SearchMessages("message", 11));
         //}); 
         //system.tick();
-        //worker.tell(new Stop());
-        //system.tick();
+        worker.tell(new Stop());
+        system.tick();
         //worker.tell(new Report("client", 10, "client"));
         //system.tick();
         //Assert.assertThrows(UnknownClientException.class, ()->{
         //    worker.tell(new Report("client", 42, "client"));
         //});
         
-        system.tick();
+        //worker.tell(new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE));
+        //system.tick();
 
-        worker.tell(new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE));
+        worker.tell(new Like("client", 10, usermessage.getMessageId()));
         system.tick();
 
         //worker.tell(new InitCommunication(worker, 10));
         //system.tick();
-
-       // Assert.assertThrows(UnknownClientException.class, ()->{
-           // worker.tell(new InitCommunication(worker, 10));
-           // system.tick();
-           // while (client.receivedMessages.size() == 0)
-               // system.runFor(1);
-            //worker.tell(new Stop());
-            //while (system.getActors().size() > 1)
-                //system.runFor(1);
-       // }); 
-        
+       
 
         
-        worker.tell(new Like("client", 10, usermessage.getMessageId()));
+        worker.tell(new UpdateMessageStore(usermessage, 10));
+        system.tick();
+
 
         System.out.print(usermessage.getPoints());
         
