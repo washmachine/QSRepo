@@ -299,7 +299,7 @@ public class MessageBoardTests {
         Assert.assertEquals("message", usermessage.getMessage());
         usermessage.setPoints(10);
         Assert.assertEquals(10, usermessage.getPoints());
-        usermessage.setMessageId(12);
+        //usermessage.setMessageId(12);
 
         Publish pubm = new Publish(usermessage, 10);
         client.tell(pubm);
@@ -326,7 +326,7 @@ public class MessageBoardTests {
         system.tick();
         worker.tell(new Report("client", 10, "client"));
         system.tick();
-//
+//          
         worker.tell(new SearchMessages("message", 10));
         system.tick();
         worker.tell(new SearchMessages("hi", 10));
@@ -334,10 +334,20 @@ public class MessageBoardTests {
         //    worker.tell(new SearchMessages("message", 11));
         //}); 
         system.tick();
+        worker.tell(new Stop());
+        system.tick();
+        worker.tell(new Report("client", 10, "client"));
+        system.tick();
+        //Assert.assertThrows(UnknownClientException.class, ()->{
+        //    worker.tell(new Report("client", 42, "client"));
+        //});
+        
+        system.tick();
+
         //Assert.assertThrows(UnknownClientException.class, ()->{
         //    worker.tell(new SearchMessages("hi", 11));
-        //}); 
-        
+        //});
+         
         
         worker.tell(new Like("client", 10, usermessage.getMessageId()));
 
