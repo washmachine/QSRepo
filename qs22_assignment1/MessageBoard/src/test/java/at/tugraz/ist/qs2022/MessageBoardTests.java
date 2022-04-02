@@ -359,9 +359,21 @@ public class MessageBoardTests {
         //    worker.tell(new SearchMessages("message", 11));
         //}); 
         system.tick();
-        //Assert.assertThrows(UnknownClientException.class, ()->{
-        //    worker.tell(new SearchMessages("hi", 11));
-        //}); 
+        worker.tell(new DeleteLikeOrDislike("client", 10, usermessage.getMessageId(), Type.LIKE));
+        system.tick();
+
+        //worker.tell(new InitCommunication(worker, 10));
+        //system.tick();
+
+       // Assert.assertThrows(UnknownClientException.class, ()->{
+           // worker.tell(new InitCommunication(worker, 10));
+           // system.tick();
+           // while (client.receivedMessages.size() == 0)
+               // system.runFor(1);
+            //worker.tell(new Stop());
+            //while (system.getActors().size() > 1)
+                //system.runFor(1);
+       // }); 
         
         
         worker.tell(new Like("client", 10, usermessage.getMessageId()));
@@ -375,15 +387,23 @@ public class MessageBoardTests {
         System.out.print(client.receivedMessages);
 
         //System.out.print(usermessage.getPoints());
-        
-        
+
+
         // end the communication
         //worker.receive(null);
         //worker.tick();
         worker.tell(new FinishCommunication(10));
+        system.tick();
+       // worker.tell(new FinishCommunication(10));
+        system.tick();
+
         while (client.receivedMessages.size() == 0)
             system.runFor(1);
 
+
+
+        //worker.tell(new FinishCommunication(10));
+        //worker.tell(new Like("client", 10, usermessage.getMessageId()));
         //Message finAckMessage = client.receivedMessages.remove();
         //Assert.assertEquals(FinishAck.class, finAckMessage.getClass());
         //FinishAck finAck = (FinishAck) finAckMessage;
@@ -394,7 +414,7 @@ public class MessageBoardTests {
         // TODO: run system until workers and dispatcher are stopped
 
         while (system.getActors().size() > 1)
-            system.runFor(1);
+           system.runFor(1);
     }
     
 
@@ -511,8 +531,22 @@ public class MessageBoardTests {
         
         
         //AddReport addreport = new AddReport("client", 10, "reportedClient");
-        
-        //WorkerHelper workerhelper = new WorkerHelper(msg_store, client, addreport, system);
+        MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
+        WorkerHelper workerhelper = new WorkerHelper(worker, client, msgStoreMsg, system);
+
+        worker.tell(msgStoreMsg);
+        system.tick();
+        system.tick();
+        system.tick();
+        system.tick();
+        system.tick();
+
+        workerhelper.tick();
+        //WorkerHelper workerhelper1 = new WorkerHelper(worker, client, msgStoreMsg, system);
+        worker.tell(msgStoreMsg);
+        workerhelper.tick();
+
+
         
         //worker.receive(addreport);
       
