@@ -41,6 +41,10 @@ class TestClient extends SimulatedActor {
      */
     final Queue<Message> receivedMessages;
 
+    long communicationId;
+    String author;
+    SimulatedActor worker;
+
     TestClient() {
         receivedMessages = new LinkedList<>();
     }
@@ -165,6 +169,9 @@ public class MessageBoardTests {
         Assert.assertEquals(10, usermessage.getPoints());
         usermessage.setMessageId(10);
         Assert.assertEquals(10, usermessage.getMessageId());
+        Assert.assertEquals(0, usermessage.getLikes().size());
+        Assert.assertEquals(0, usermessage.getDislikes().size());
+        Assert.assertEquals(0, usermessage.getReactions().size());
 
         InitCommunication initComm = new InitCommunication(client, 10);
         dispatcher.tell(initComm);
@@ -182,23 +189,22 @@ public class MessageBoardTests {
         Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
 
         worker.tell(publish); 
-        worker.tell(like);
-        worker.tell(dislike);
-
         while (client.receivedMessages.size() == 0)
             system.runFor(1);
 
+        worker.tell(like);
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        worker.tell(dislike);
+        while (client.receivedMessages.size() == 0)
+            system.runFor(1);
+
+        //while (client.receivedMessages.size() == 0)
+            //system.runFor(1);
+
         for(int i = 0; i < 1000; i++)
             worker.tick();
-
-        //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getLikes().size());
-
-        //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getDislikes().size());
-
-        //could be more meaningful?
-        Assert.assertEquals(0, usermessage.getReactions().size());
 
         
         if (worker.getMessageLog().size() <= 3)
@@ -254,27 +260,6 @@ public class MessageBoardTests {
 
         List<Message> expected_message_log = Arrays.asList(initComm, publish, like, dislike);
         Assert.assertEquals(expected_message_log, worker.getMessageLog());
-
-        
-
-        /*
-        if (worker.getMessageLog().size() <= 3)
-            assert(false);
-        */
-
-        //would be meaningful if I'd get messages to be processed
-        //Assert.assertEquals(11, usermessage.getPoints());
-
-        //could be more meaningful?
-        //Assert.assertEquals(0, usermessage.getLikes().size());
-
-        //could be more meaningful?
-        //Assert.assertEquals(0, usermessage.getDislikes().size());
-
-        //could be more meaningful?
-        //Assert.assertEquals(0, usermessage.getReactions().size());
-
-        //Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
 
     }
 
@@ -532,16 +517,12 @@ public class MessageBoardTests {
         system.tick();
      
         
-        
         UserBanned user = new UserBanned(10);
         OperationAck ack = new OperationAck(10);
         Assert.assertEquals(user.getDuration(), 1);
         Assert.assertEquals(ack.getDuration(), 1);
         
-       
 
-        
-        
         //AddReport addreport = new AddReport("client", 10, "reportedClient");
         MessageStoreMessage msgStoreMsg =  new AddLike("client", 10, 10);
         WorkerHelper workerhelper = new WorkerHelper(worker, client, msgStoreMsg, system);
@@ -559,7 +540,6 @@ public class MessageBoardTests {
         workerhelper.tick();
 
 
-        
         //worker.receive(addreport);
       
         
