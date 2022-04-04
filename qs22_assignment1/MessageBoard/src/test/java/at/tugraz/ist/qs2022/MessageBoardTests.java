@@ -184,10 +184,18 @@ public class MessageBoardTests {
         worker.setId(5);
         Assert.assertEquals(5, worker.getId());
 
+        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
+
         Publish publish = new Publish(usermessage, 10);
         Like like = new Like("client", 10, usermessage.getMessageId());
         Dislike dislike = new Dislike("client", 10, usermessage.getMessageId());
 
+
+
+        ////////////geht hier drum eine user message zu senden, dann zu liken, disliken, 
+        // /////////und dann die points der user nachricht zu checken (settet auf 10 + 2 like -1 dislike -> should be 11)
+        //////TRASH
+        ///
         worker.tell(publish); 
         while (client.receivedMessages.size() == 0)
             system.runFor(1);
@@ -200,23 +208,19 @@ public class MessageBoardTests {
         while (client.receivedMessages.size() == 0)
             system.runFor(1);
 
-        //while (client.receivedMessages.size() == 0)
-            //system.runFor(1);
-
         for(int i = 0; i < 1000; i++)
             worker.tick();
-
         
         if (worker.getMessageLog().size() <= 3)
-            assert(false);
-        
+            assert(false);  
+        ////////TRASH///
         //would be meaningful if I'd get messages to be processed
         //Assert.assertEquals(11, usermessage.getPoints());
-
-        Assert.assertEquals("author:message liked by : disliked by :; Points: 10", usermessage.toString());
-
-
         ///////////////////////////
+
+
+
+
         StopAck stopAck = new StopAck(worker);
         Assert.assertEquals(2, stopAck.getDuration());
 
