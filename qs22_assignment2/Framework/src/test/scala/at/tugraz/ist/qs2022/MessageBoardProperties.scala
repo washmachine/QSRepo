@@ -9,6 +9,7 @@ import org.junit.runner.RunWith
 import org.scalacheck.Prop.{classify, forAll}
 import org.scalacheck.{Gen, Properties}
 
+
 import scala.jdk.CollectionConverters._
 
 @RunWith(classOf[ScalaCheckJUnitPropertiesRunner])
@@ -47,25 +48,130 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
   }
   // TODO: add another properties for requirements R1-R13
 
-  property("example property with generators") =
+
+  /////////DOESNT WORK
+  property("retrieve list of all existing messages of author [R5]") = 
     forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen)) { (author: String, messages: List[String]) =>
-      val sut = new SUTMessageBoard
-      sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
-      while (sut.getClient.receivedMessages.isEmpty)
-        sut.getSystem.runFor(1)
-      val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
-      val worker: SimulatedActor = initAck.worker
+        // arrange-  initialize the message board
+        val sut = new SUTMessageBoard
+        sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+          sut.getSystem.runFor(1)
+        val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+        val worker: SimulatedActor = initAck.worker
 
-      // here would be a worker.tell, e.g. in a loop
+        var i = 0;
+        var valid = true;
 
-      worker.tell(new FinishCommunication(sut.getCommId))
-      while (sut.getClient.receivedMessages.isEmpty)
-        sut.getSystem.runFor(1)
-      sut.getClient.receivedMessages.remove()
+        while (i < messages.length && valid == true){
+          val msg = messages(i)
+          
+          // act - send and receive the messages
+          worker.tell(new Publish(new UserMessage(author, msg), sut.getCommId))
+          while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+          val reply = sut.getClient.receivedMessages.remove()
 
-      // here would be a check
-      false
-    }
+          valid = reply.isInstanceOf[OperationAck]
+          i += 1
+        }
 
+        worker.tell(new RetrieveMessages(author, sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+          sut.getSystem.runFor(1)
+        val allMessages = sut.getClient.receivedMessages.remove()
+        val messagesOfAuthor = allMessages.asInstanceOf[FoundMessages].messages.asScala.filter(m => m.getAuthor.equals(author))
+
+        worker.tell(new FinishCommunication(sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+          sut.getSystem.runFor(1)
+        sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+
+        classify(allMessages.isInstanceOf[FoundMessages], "valid message", "invalid message"){
+            classify(messagesOfAuthor.length == messages.length, "found the message", "didn't find the message"){
+                messagesOfAuthor.length == messages.length && allMessages.isInstanceOf[FoundMessages]
+            }
+        }
+  }
+
+
+
+  property("retrieve all messages with searches [R6]") = 
+    forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen), validMessageGen) { (author: String, messages: List[String], searchString: String) =>
+        val sut = new SUTMessageBoard
+        sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+        val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+        val worker: SimulatedActor = initAck.worker
+
+        var valid = true
+        var i = 0
+        while (i < messages.length && valid == true) {
+            val msg = messages(i)
+            // act - send and receive the messages
+            worker.tell(new Publish(new UserMessage(author, msg), sut.getCommId))
+            while (sut.getClient.receivedMessages.isEmpty)
+                sut.getSystem.runFor(1)
+            val reply = sut.getClient.receivedMessages.remove()
+
+            valid = reply.isInstanceOf[OperationAck]
+            i += 1
+        }
+
+        worker.tell(new SearchMessages(searchString, sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+        val allMessages = sut.getClient.receivedMessages.remove()
+
+        var testMessages = messages.filter(m => m.toLowerCase.contains(searchString.toLowerCase))
+        if (author.toLowerCase.contains(searchString.toLowerCase)) {
+            testMessages = (testMessages ++ messages).distinct
+        }
+
+        val foundMessages = allMessages.asInstanceOf[FoundMessages].messages.asScala
+
+        worker.tell(new FinishCommunication(sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+          sut.getSystem.runFor(1)
+        sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+      
+        classify(allMessages.isInstanceOf[FoundMessages], "valid message", "invalid message") {
+            classify(testMessages.length == foundMessages.length, "found the message", "didn't find the message") {
+                testMessages.length == foundMessages.length && allMessages.isInstanceOf[FoundMessages]
+            }
+        }
+  }
+
+  property("report user after having reported user already [R7]") = 
+    forAll(Gen.alphaStr, Gen.alphaStr) { (author1: String, author2: String) =>
+        val sut = new SUTMessageBoard
+        sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+        val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+        val worker: SimulatedActor = initAck.worker
+
+        worker.tell(new Report(author2, sut.getCommId, author1))
+        while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+        val report1 = sut.getClient.receivedMessages.remove()
+
+        worker.tell(new Report(author2, sut.getCommId, author1))
+        while (sut.getClient.receivedMessages.isEmpty)
+            sut.getSystem.runFor(1)
+        val report2 = sut.getClient.receivedMessages.remove()
+
+        worker.tell(new FinishCommunication(sut.getCommId))
+        while (sut.getClient.receivedMessages.isEmpty)
+          sut.getSystem.runFor(1)
+        sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+
+        classify(report1.isInstanceOf[OperationAck], "valid report1", "invalid report1") {
+            classify(report2.isInstanceOf[OperationFailed], "valid report2", "invalid report2") {
+                report1.isInstanceOf[OperationAck] && report2.isInstanceOf[OperationFailed]
+            }
+        }
+  }
 }
 
