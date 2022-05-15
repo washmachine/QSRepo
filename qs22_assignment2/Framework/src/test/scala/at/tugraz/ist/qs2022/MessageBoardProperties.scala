@@ -9,7 +9,6 @@ import org.junit.runner.RunWith
 import org.scalacheck.Prop.{classify, forAll}
 import org.scalacheck.{Gen, Properties}
 
-
 import scala.jdk.CollectionConverters._
 
 @RunWith(classOf[ScalaCheckJUnitPropertiesRunner])
@@ -46,10 +45,118 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
       reply.isInstanceOf[OperationAck] == message.length <= MAX_MESSAGE_LENGTH
     }
   }
+  property("example property with generators") =
+    forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen)) { (author: String, messages: List[String]) =>
+      val sut = new SUTMessageBoard
+      sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+      val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+      val worker: SimulatedActor = initAck.worker
+
+      // here would be a worker.tell, e.g. in a loop
+
+      worker.tell(new FinishCommunication(sut.getCommId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+      sut.getClient.receivedMessages.remove()
+
+      // here would be a check
+      true
+  }
   // TODO: add another properties for requirements R1-R13
 
+  property("[R2] save message if not already saved") = forAll(Gen.alphaStr, validMessageGen) { (author: String, message: String) => 
+    val sut = new SUTMessageBoard
+    sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+    val worker: SimulatedActor = initAck.worker
 
-  /////////DOESNT WORK
+    // act - send and receive the messages
+    worker.tell(new Publish(new UserMessage(author, message), sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val reply = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Publish(new UserMessage(author, message), sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val duplicate_reply = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new FinishCommunication(sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+
+    classify(reply == duplicate_reply, "same message", "different message") {
+      reply.isInstanceOf[OperationAck] && duplicate_reply.isInstanceOf[OperationFailed]
+    }
+  }
+
+  property("[R3] check if message exist before reacting") = forAll(Gen.alphaStr, Gen.alphaStr, validMessageGen) { (author: String, author2: String, message: String) =>
+    val sut = new SUTMessageBoard
+    sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+    val worker: SimulatedActor = initAck.worker
+
+    // act - send and receive the messages
+    worker.tell(new Publish(new UserMessage(author, message), sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val reply = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new RetrieveMessages(author, sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+    val msg_to_react_to = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Like(author2, sut.getCommId, msg_to_react_to.asInstanceOf[FoundMessages].messages.asScala.filter(m => m.getMessage.equals(message)).head.getMessageId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val liked_reply = sut.getClient.receivedMessages.remove()
+    
+    worker.tell(new Like(author, sut.getCommId, -1)) // messageID = -1 to gurantee its invalid
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val liked_reply_invalid_msg = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Dislike(author, sut.getCommId, msg_to_react_to.asInstanceOf[FoundMessages].messages.get(0).getMessageId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val disliked_reply = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Dislike(author, sut.getCommId, -1)) // messageID = -1 to gurantee its invalid
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val disliked_reply_invalid_msg = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Reaction(author, sut.getCommId, msg_to_react_to.asInstanceOf[FoundMessages].messages.get(0).getMessageId, Reaction.Emoji.SMILEY))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val reaction_reply = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new Reaction(author, sut.getCommId, -1, Reaction.Emoji.SMILEY)) // messageID = -1 to gurantee its invalid
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+    val reaction_reply_invalid_msg = sut.getClient.receivedMessages.remove()
+
+    worker.tell(new FinishCommunication(sut.getCommId))
+    while (sut.getClient.receivedMessages.isEmpty)
+      sut.getSystem.runFor(1)
+      sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+    
+
+    
+    liked_reply_invalid_msg.isInstanceOf[OperationFailed] && liked_reply.isInstanceOf[OperationAck] //&&
+    //disliked_reply_invalid_msg.isInstanceOf[OperationFailed] && disliked_reply.isInstanceOf[OperationAck] &&
+    //reaction_reply_invalid_msg.isInstanceOf[OperationFailed] && reaction_reply.isInstanceOf[OperationAck]
+  }
+
+    /////////DOESNT WORK
   property("retrieve list of all existing messages of author [R5]") = 
     forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen)) { (author: String, messages: List[String]) =>
         // arrange-  initialize the message board
@@ -88,13 +195,11 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
         sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
 
         classify(allMessages.isInstanceOf[FoundMessages], "valid message", "invalid message"){
-            classify(messagesOfAuthor.length == messages.length, "found the message", "didn't find the message"){
-                messagesOfAuthor.length == messages.length && allMessages.isInstanceOf[FoundMessages]
-            }
+          classify(messagesOfAuthor.length == messages.length, "found the message", "didn't find the message"){
+            messagesOfAuthor.length == messages.length && allMessages.isInstanceOf[FoundMessages]
+          }
         }
   }
-
-
 
   property("retrieve all messages with searches [R6]") = 
     forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen), validMessageGen) { (author: String, messages: List[String], searchString: String) =>
@@ -174,4 +279,6 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
         }
   }
 }
+
+
 

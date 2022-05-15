@@ -52,17 +52,45 @@ class SimpleFunctionsTest extends Properties("SimpleFunctionsTest") {
 
   // maximum
   // TODO: max() properties
+  property("max: largest value") = forAll(nonEmptyIntListGen) { (xs: List[Int]) => 
+    val max_value = max(xs)
+    xs.nonEmpty ==> xs.forall((value: Int) => max_value >= value)
+  }
 
   // minimal index
   // TODO: minIndex() properties
+  property("minIndex: index of smallest value") = forAll(nonEmptyIntListGen) { (xs: List[Int]) => 
+    val smallest_value_index = minIndex(xs)
+    xs.nonEmpty ==> (smallest_value_index == xs.indexOf(xs.min))
+  }
 
   // symmetric difference
   // TODO: symmetricDifference() properties
+  property("symmetric difference: check for unique elements") = forAll(nonEmptyIntListGen, nonEmptyIntListGen) { (xs: List[Int], ys: List[Int]) => 
+    val unique_elements = symmetricDifference(xs, ys)  
+    //rs = symmetricDifference(xs, ys, rs)
+    unique_elements.forall((element: Int) => (xs.contains(element) || ys.contains(element)))
+  }
 
   // intersection
   // TODO: intersection() properties
+  property("intersection: check for common elements") = forAll(nonEmptyIntListGen, nonEmptyIntListGen) { (xs: List[Int], ys: List[Int]) => 
+    val common_elements = intersection(xs, ys)
+    common_elements.forall((element: Int) => (xs.contains(element) && ys.contains(element)))  
+  }
 
   // Smallest missing positive integer
   // TODO: smallestMissingPositiveInteger() properties
-
+  property("smallest missing positive integer: return smallest positive int not contained in the set") = forAll(nonEmptyIntListGen) { (xs: List[Int]) =>
+    val small_pos_int = smallestMissingPositiveInteger(xs)
+    var smallest_missing_int: Int = 1
+    val positive_ints_sorted = xs.filter((value: Int) => value > 0).sorted
+    
+    for(int <- positive_ints_sorted) {
+      if(int == smallest_missing_int){
+        smallest_missing_int += 1
+      }
+    }
+    smallest_missing_int == small_pos_int && !xs.contains(smallest_missing_int)
+  }
 }
