@@ -160,6 +160,7 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
     /////////DOESNT WORK
   property("retrieve list of all existing messages of author [R5]") = 
     forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen)) { (author: String, messages: List[String]) =>
+      (author.trim.nonEmpty && messages.forall(x => x.trim.nonEmpty)) ==> {
         // arrange-  initialize the message board
         val sut = new SUTMessageBoard
         sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
@@ -200,6 +201,7 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
             messagesOfAuthor.length == messages.length && allMessages.isInstanceOf[FoundMessages]
           }
         }
+      }
   }
 
   property("retrieve all messages with searches [R6]") = 
