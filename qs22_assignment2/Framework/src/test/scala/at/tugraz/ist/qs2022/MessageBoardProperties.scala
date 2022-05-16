@@ -206,6 +206,7 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
 
   property("retrieve all messages with searches [R6]") = 
     forAll(Gen.alphaStr, Gen.nonEmptyListOf(validMessageGen), validMessageGen) { (author: String, messages: List[String], searchString: String) =>
+      (author.trim.nonEmpty && messages.forall(x => x.trim.nonEmpty)) ==> { 
         val sut = new SUTMessageBoard
         sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
         while (sut.getClient.receivedMessages.isEmpty)
@@ -249,6 +250,7 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
                 testMessages.length == foundMessages.length && allMessages.isInstanceOf[FoundMessages]
             }
         }
+      }
   }
 
   property("report user after having reported user already [R7]") = 
@@ -430,7 +432,61 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
     }
   }
 
-  
+  property("[R9] Successful requests should be confirmed by sending OperationAck or ReactionResponse (depending on request type).") =
+    forAll(Gen.alphaStr, Gen.alphaStr, validMessageGen) { (author: String, author_reported: String, message: String) =>
+      (author.trim.nonEmpty && author_reported.trim.nonEmpty&& message.trim.nonEmpty) ==> {
+      val sut = new SUTMessageBoard
+      sut.getDispatcher.tell(new InitCommunication(sut.getClient, sut.getCommId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+      val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
+      val worker: SimulatedActor = initAck.worker
+
+      //Requests are considered successful when a message has been saved, a Like or Dislike has been added to a message, or a report for an author has been added
+      val msg = new UserMessage(author, message)
+      worker.tell(new Publish(msg, sut.getCommId))
+
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+      val reply_publish = sut.getClient.receivedMessages.remove()
+
+      worker.tell(new Like(author, sut.getCommId, msg.getMessageId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+
+      val reply_like = sut.getClient.receivedMessages.remove()
+
+
+      worker.tell(new Dislike(author, sut.getCommId, msg.getMessageId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+
+      val reply_dislike = sut.getClient.receivedMessages.remove()
+
+      worker.tell(new Report(author, sut.getCommId, author_reported))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+
+      val reply_report = sut.getClient.receivedMessages.remove()
+
+      
+      worker.tell(new FinishCommunication(sut.getCommId))
+      while (sut.getClient.receivedMessages.isEmpty)
+        sut.getSystem.runFor(1)
+      sut.getClient.receivedMessages.remove.asInstanceOf[FinishAck]
+
+      //points default is 0
+      classify(reply_publish.isInstanceOf[OperationAck] , "publish successful", "publish unsuccessful"){
+        classify(reply_like.isInstanceOf[ReactionResponse],  "like successfully ", "like unsuccessful") {
+          classify(reply_dislike.isInstanceOf[ReactionResponse] , "dislike successful", "dislike unsuccessful"){
+            classify(reply_report.isInstanceOf[OperationAck],  "like successfully ", "like unsuccessful") {
+              reply_publish.isInstanceOf[OperationAck] && reply_like.isInstanceOf[ReactionResponse] && reply_dislike.isInstanceOf[ReactionResponse] && reply_report.isInstanceOf[OperationAck]
+            }
+          }
+        }
+      }
+    }
+  }
   
   property("[R11] If a message has been liked, two points should be added to the messages points counter. If a message has been disliked, one point should be removed.") =
     forAll(Gen.alphaStr, Gen.alphaStr, validMessageGen) { (author_msg: String, author_dislike: String, message: String) =>
@@ -476,6 +532,9 @@ class MessageBoardProperties extends Properties("MessageBoardProperties") {
       }
     }
   }
+
+
+
   //property("[R13] A dislike may only be deleted if message was disliked before.") =
   //  forAll(Gen.alphaStr, Gen.alphaStr, validMessageGen) { (author_msg: String, author_dislike: String, message: String) =>
   //    (author_msg.trim.nonEmpty && author_dislike.trim.nonEmpty && !author_msg.eq(author_dislike) && message.trim.nonEmpty) ==> {
