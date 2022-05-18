@@ -81,9 +81,7 @@ object MessageBoardSpecification extends Commands {
           lastCommandSuccessful = false,
           userBanned = true
         )
-      } else if (author.trim.isEmpty ||
-        message.length > MAX_MESSAGE_LENGTH ||
-        message.trim.isEmpty ||
+      } else if (message.length > MAX_MESSAGE_LENGTH ||
         state.messages.count(i => i.message.contentEquals(message) && i.author.contentEquals(author)) > 0) {
         state.copy(
           lastCommandSuccessful = false,
@@ -91,7 +89,7 @@ object MessageBoardSpecification extends Commands {
         )
       } else { 
         val mUserMessage = ModelUserMessage(author, message, List[String](), List[String](), collection.mutable.Map(), 0)
-        val addedMessages = mUserMessage :: state.messages
+        val addedMessages = mUserMessage::state.messages
         state.copy(
           lastCommandSuccessful = true,
           userBanned = false,
@@ -111,11 +109,11 @@ object MessageBoardSpecification extends Commands {
         // TODO
         /////////////
         reply match {
-          case _: OperationFailed =>
+          case failed: OperationFailed =>
             !newState.userBanned && !newState.lastCommandSuccessful
-          case _: UserBanned =>
+          case banned: UserBanned =>
             newState.userBanned && !newState.lastCommandSuccessful
-          case _: OperationAck =>
+          case ack: OperationAck =>
             !newState.userBanned && newState.lastCommandSuccessful && (state.messages.length + 1) == newState.messages.length
           case _ =>
             state.messages.length == newState.messages.length && !newState.lastCommandSuccessful 
@@ -335,7 +333,7 @@ object MessageBoardSpecification extends Commands {
       sut.getClient.receivedMessages.remove()
 
       result match {
-        case searchForResponse: FoundMessages =>
+        case retrieved: FoundMessages =>
           RetrieveCommandResult(success = true, searchForResponse.messages.asScala.toList)
         case _ =>
           RetrieveCommandResult(success = false, Nil)
@@ -361,8 +359,8 @@ object MessageBoardSpecification extends Commands {
         val reply: Result = result.get
         // TODO
         ////////
-        val foundMessages = state.messages.filter(i => i.author.equals(author))
-        foundMessages.length.equals(reply.messages.length) == foundMessages.forall(i => (reply.messages count (j => j.getMessage.contentEquals(i.message) && j.getAuthor.contentEquals(i.author))) == 1)
+        state.messages.filter(i => i.author.equals(author)).length.equals(reply.messages.length) == 
+        state.messages.filter(i => i.author.equals(author)).forall(i => (reply.messages count (j => j.getMessage.contentEquals(i.message) && j.getAuthor.contentEquals(i.author))) == 1)
         ///////
       } else {
         false
@@ -390,6 +388,11 @@ object MessageBoardSpecification extends Commands {
       val initAck = sut.getClient.receivedMessages.remove.asInstanceOf[InitAck]
       val worker: SimulatedActor = initAck.worker
 
+      //worker.tell(new Report(reporter, sut.getCommId, reported))
+      //while (sut.getClient.receivedMessages.isEmpty)
+        //sut.getSystem.runFor(1)
+      //val result = sut.getClient.receivedMessages.remove()
+
       worker.tell(new SearchMessages(searchText, sut.getCommId))
       while (sut.getClient.receivedMessages.isEmpty)
         sut.getSystem.runFor(1)
@@ -401,8 +404,8 @@ object MessageBoardSpecification extends Commands {
       sut.getClient.receivedMessages.remove()
 
       result match {
-        case searchForResponse: FoundMessages =>
-          SearchCommandResult(success = true, searchForResponse.messages.asScala.toList)
+        case found: FoundMessages =>
+          SearchCommandResult(success = true, found.messages.asScala.toList)
         case _ =>
           SearchCommandResult(success = false, Nil)
       }
